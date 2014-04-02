@@ -1,0 +1,70 @@
+#include<avr/io.h>
+#define FOSC 16000000 // Clock Speed
+#define BAUD 31250// baud rate
+#define MYUBRR FOSC/16/BAUD-1
+void USART_Init(unsigned int ubrr);
+void USART_Transmit( unsigned char data );
+
+
+int main( void )
+{
+  USART_Init(MYUBRR);
+  DDRB |= 1 << PORTB5; //Set Direction for output on PINB0
+  PORTB ^= 1 << PORTB5; //Toggling only Pin 0 on port b
+  //DDRB |= 1 << PORTB4; //Set Direction for Output on PINB2
+  //PORTB ^= 1 << PORTB4; //Toggling only Pin 0 on port b
+  DDRB &= ~(1 << PORTB0); //Data Direction Register input PINB1
+  PORTB |= 1 << PORTB0; //Set PINB0 to a high reading
+  int Pressed = 0; //Initialize/Declare the Pressed variable
+  //int released = 0;
+  while (1)
+  {
+    if (bit_is_set(PINB, 0)) //Check is the button is pressed
+    {
+      if (Pressed == 0) 
+      {
+        //This code executes when the button is pressed.
+        PORTB ^= 1 << PORTB5; //Toggle LED in pin 0
+        //send serial data
+        USART_Transmit( 60 );
+        
+        Pressed = 1;
+      } 
+    }
+    else if (bit_is_clear(PINB, 0)) //Check is the button is not pressed
+    {
+      //This code executes when the button is not pressed.
+      //PORTB = 0 << PORTB4; //Set PINB4 to a high reading
+      Pressed = 0;
+    }  
+  }
+}
+
+void USART_Init(unsigned int ubrr)
+{
+  /* Set baud rate */
+  UBRR0H = (unsigned char)(ubrr>>8);
+  UBRR0L = (unsigned char)ubrr;
+  /* Enable receiver and transmitter */
+  UCSR0B = (1<<RXEN0)|(1<<TXEN0);
+  /* Set frame format: 8data, 2stop bit */
+  UCSR0C = (1<<USBS0)|(3<<UCSZ00);
+}
+
+void USART_Transmit( unsigned char data )
+{
+  /* Wait for empty transmit buffer */
+  while ( !( UCSR0A & (1<<UDRE0)) );
+  /* Put data into buffer, sends the data */
+  UDR0 = data;
+}
+
+
+/*
+
+avr-gcc -mmcu=atmega328p -Wall -Os -o usart_basic_tx.elf USART_BASIC_TX.C
+
+avr-objcopy -j .text -j .data -O ihex usart_basic_tx.elf usart_basic_tx.hex
+
+sudo avrdude -p m328p -c usbtiny -e -U flash:w:usart_basic_tx.hex
+*/
